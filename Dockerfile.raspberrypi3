@@ -1,0 +1,45 @@
+FROM balenalib/raspberrypi3:buster
+
+# Install desktop environment
+RUN install_packages xserver-xorg-core \
+xinit lxsession desktop-file-utils \
+raspberrypi-ui-mods rpd-icons \
+gtk2-engines-clearlookspix \
+matchbox-keyboard \
+build-essential \
+cmake \
+libavahi-compat-libdnssd-dev \
+libssl-dev
+
+# disable lxpolkit popup warning
+RUN mv /usr/bin/lxpolkit /usr/bin/lxpolkit.bak
+
+RUN echo "#!/bin/bash" > /etc/X11/xinit/xserverrc \
+&& echo "" >> /etc/X11/xinit/xserverrc \
+&& echo 'exec /usr/bin/X -s 0 dpms -nolisten tcp "$@"' >> /etc/X11/xinit/xserverrc
+
+# Setting working directory
+WORKDIR /usr/src/app
+
+# Build AirPi
+COPY include /opt/vc/include
+COPY ilclient /opt/vc/src/hello_pi/libs/ilclient
+COPY lib lib
+COPY renderers renderers
+COPY CMakeLists.txt CMakeLists.txt
+COPY log.h log.h
+COPY rpiplay.cpp rpiplay.cpp
+
+RUN mkdir build
+RUN cd build \
+  && cmake .. \
+  && make \
+  && ln -s /usr/src/app/build/rpiplay /usr/local/bin/rpiplay
+
+COPY start.sh start.sh
+# Adding things to autostart will cause them to be launchd automatically on startup
+COPY autostart /etc/xdg/lxsession/LXDE-pi/autostart
+
+ENV UDEV=1
+
+CMD ["bash", "start.sh"]
